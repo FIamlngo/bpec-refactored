@@ -94,9 +94,9 @@ public class BackpackManager {
             root.put("Backpack", list);
             NbtIo.writeCompressed(root, path);
             BpEcMod.LOGGER.info("[BPEC] Saved {} items to {}", countItems(inv), path);
-        } catch (Exception e) {
-            BpEcMod.LOGGER.error("[BPEC] Save failed for {}: {}", uuid, e.getMessage(), e);
-        }
+            } catch (Throwable e) {
+                BpEcMod.LOGGER.error("[BPEC] Save failed for {}: {}", uuid, e.getMessage(), e);
+            }
     }
 
     private static void loadFromDisk(UUID uuid, RegistryWrapper.WrapperLookup registries, SimpleInventory inv) {
