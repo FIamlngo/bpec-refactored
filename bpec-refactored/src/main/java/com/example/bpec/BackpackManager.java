@@ -107,8 +107,7 @@ public class BackpackManager {
         }
         try {
             NbtCompound root = NbtIo.readCompressed(path, NbtSizeTracker.ofUnlimitedBytes());
-            if (!root.contains("Backpack")) return;
-            NbtList list = root.getList("Backpack", NbtElement.COMPOUND_TYPE);
+            if (!(root.get("Backpack") instanceof NbtList list)) return;
             for (int i = 0; i < list.size(); i++) {
                 NbtCompound entry = list.getCompound(i);
                 int slot = entry.getInt("Slot");
