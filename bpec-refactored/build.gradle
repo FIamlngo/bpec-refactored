@@ -6,7 +6,7 @@ version = '1.0.0'
 group = 'com.example.bpec'
 
 base {
-    archivesName = "BpAndEc v.${version} [Fabric 1.21.11]"
+    archivesName = "BpAndEc [Fabric 1.21.11] "
 }
 
 repositories {}
@@ -29,10 +29,6 @@ processResources {
 tasks.withType(JavaCompile).configureEach {
     it.options.release = 21
 }
-
-// Disable sources jar — not needed for distribution
-tasks.sourcesJar.enabled = false
-tasks.remapSourcesJar.enabled = false
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
