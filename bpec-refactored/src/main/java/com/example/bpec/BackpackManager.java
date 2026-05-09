@@ -10,7 +10,6 @@ import net.minecraft.nbt.NbtSizeTracker;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.network.ServerPlayerEntity;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -21,6 +20,8 @@ import java.util.UUID;
 public class BackpackManager {
 
     private static final Map<UUID, SimpleInventory> inventories = new HashMap<>();
+    // Path resolved at join time while the server is healthy
+    private static final Map<UUID, Path> savePaths = new HashMap<>();
     private static final String DATA_FOLDER = "bpec_data";
 
     public static SimpleInventory getBackpack(ServerPlayerEntity player) {
@@ -28,60 +29,54 @@ public class BackpackManager {
     }
 
     public static void onPlayerJoin(ServerPlayerEntity player) {
+        // Resolve and cache the save path NOW while server is fully running
+        Path path = resolvePath(player);
+        savePaths.put(player.getUuid(), path);
+
         SimpleInventory inv = new SimpleInventory(54);
-        loadFromDisk(player, inv);
+        loadFromDisk(player.getUuid(), player.getRegistryManager(), inv);
         inventories.put(player.getUuid(), inv);
-        BpEcMod.LOGGER.info("[BPEC] Loaded backpack for {} ({} items)", player.getName().getString(), countItems(inv));
+        BpEcMod.LOGGER.info("[BPEC] Joined: {} | path: {} | items: {}", player.getName().getString(), path, countItems(inv));
     }
 
     public static void onPlayerLeave(ServerPlayerEntity player) {
         SimpleInventory inv = inventories.get(player.getUuid());
         if (inv != null) {
-            BpEcMod.LOGGER.info("[BPEC] Saving on leave for {} ({} items)", player.getName().getString(), countItems(inv));
-            saveToDisk(player, inv);
+            BpEcMod.LOGGER.info("[BPEC] Leaving: {} | items: {}", player.getName().getString(), countItems(inv));
+            saveToDisk(player.getUuid(), player.getRegistryManager(), inv);
             inventories.remove(player.getUuid());
-        } else {
-            BpEcMod.LOGGER.warn("[BPEC] onPlayerLeave: no inventory found for {}", player.getName().getString());
+            savePaths.remove(player.getUuid());
         }
     }
 
     public static void savePlayer(ServerPlayerEntity player) {
         SimpleInventory inv = inventories.get(player.getUuid());
         if (inv != null) {
-            BpEcMod.LOGGER.info("[BPEC] Periodic save for {} ({} items)", player.getName().getString(), countItems(inv));
-            saveToDisk(player, inv);
-        } else {
-            BpEcMod.LOGGER.warn("[BPEC] savePlayer: no inventory found for {}", player.getName().getString());
+            BpEcMod.LOGGER.info("[BPEC] Periodic save: {} | items: {}", player.getName().getString(), countItems(inv));
+            saveToDisk(player.getUuid(), player.getRegistryManager(), inv);
         }
     }
 
-    private static int countItems(SimpleInventory inv) {
-        int count = 0;
-        for (int i = 0; i < inv.size(); i++) {
-            if (!inv.getStack(i).isEmpty()) count++;
-        }
-        return count;
-    }
-
-    private static Path getDataPath(ServerPlayerEntity player) {
-        Path dataDir;
+    private static Path resolvePath(ServerPlayerEntity player) {
         try {
-            dataDir = player.getServerWorld().getServer()
+            Path dataDir = player.getServerWorld().getServer()
                     .getSavePath(net.minecraft.util.WorldSavePath.ROOT)
                     .resolve(DATA_FOLDER);
-            BpEcMod.LOGGER.info("[BPEC] Data path: {}", dataDir);
             Files.createDirectories(dataDir);
+            return dataDir.resolve(player.getUuid() + ".dat");
         } catch (Exception e) {
-            BpEcMod.LOGGER.error("[BPEC] Could not create data directory: {}", e.getMessage());
-            dataDir = Path.of(DATA_FOLDER);
+            BpEcMod.LOGGER.error("[BPEC] Failed to resolve path: {}", e.getMessage());
+            return Path.of(DATA_FOLDER, player.getUuid() + ".dat");
         }
-        return dataDir.resolve(player.getUuid() + ".dat");
     }
 
-    private static void saveToDisk(ServerPlayerEntity player, SimpleInventory inv) {
+    private static void saveToDisk(UUID uuid, RegistryWrapper.WrapperLookup registries, SimpleInventory inv) {
+        Path path = savePaths.get(uuid);
+        if (path == null) {
+            BpEcMod.LOGGER.error("[BPEC] No cached path for {} — cannot save!", uuid);
+            return;
+        }
         try {
-            Path path = getDataPath(player);
-            RegistryWrapper.WrapperLookup registries = player.getRegistryManager();
             NbtList list = new NbtList();
             for (int slot = 0; slot < inv.size(); slot++) {
                 ItemStack stack = inv.getStack(slot);
@@ -95,21 +90,19 @@ public class BackpackManager {
             NbtCompound root = new NbtCompound();
             root.put("Backpack", list);
             NbtIo.writeCompressed(root, path);
-            BpEcMod.LOGGER.info("[BPEC] Saved {} to {}", player.getName().getString(), path);
+            BpEcMod.LOGGER.info("[BPEC] Saved {} items to {}", countItems(inv), path);
         } catch (Exception e) {
-            BpEcMod.LOGGER.error("[BPEC] Failed to save backpack for {}: {}", player.getName().getString(), e.getMessage(), e);
+            BpEcMod.LOGGER.error("[BPEC] Save failed for {}: {}", uuid, e.getMessage(), e);
         }
     }
 
-    private static void loadFromDisk(ServerPlayerEntity player, SimpleInventory inv) {
+    private static void loadFromDisk(UUID uuid, RegistryWrapper.WrapperLookup registries, SimpleInventory inv) {
+        Path path = savePaths.get(uuid);
+        if (path == null || !Files.exists(path)) {
+            BpEcMod.LOGGER.info("[BPEC] No save file for {}", uuid);
+            return;
+        }
         try {
-            Path path = getDataPath(player);
-            BpEcMod.LOGGER.info("[BPEC] Looking for save at: {}", path);
-            if (!Files.exists(path)) {
-                BpEcMod.LOGGER.info("[BPEC] No save file found for {}", player.getName().getString());
-                return;
-            }
-            RegistryWrapper.WrapperLookup registries = player.getRegistryManager();
             NbtCompound root = NbtIo.readCompressed(path, NbtSizeTracker.ofUnlimitedBytes());
             if (!root.contains("Backpack", NbtElement.LIST_TYPE)) return;
             NbtList list = root.getList("Backpack", NbtElement.COMPOUND_TYPE);
@@ -121,9 +114,16 @@ public class BackpackManager {
                     inv.setStack(slot, stack.orElse(ItemStack.EMPTY));
                 }
             }
-            BpEcMod.LOGGER.info("[BPEC] Loaded {} items for {}", countItems(inv), player.getName().getString());
+            BpEcMod.LOGGER.info("[BPEC] Loaded {} items for {}", countItems(inv), uuid);
         } catch (Exception e) {
-            BpEcMod.LOGGER.error("[BPEC] Failed to load backpack for {}: {}", player.getName().getString(), e.getMessage(), e);
+            BpEcMod.LOGGER.error("[BPEC] Load failed for {}: {}", uuid, e.getMessage(), e);
         }
+    }
+
+    private static int countItems(SimpleInventory inv) {
+        int count = 0;
+        for (int i = 0; i < inv.size(); i++)
+            if (!inv.getStack(i).isEmpty()) count++;
+        return count;
     }
 }
