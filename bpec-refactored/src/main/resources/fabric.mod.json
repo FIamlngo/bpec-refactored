@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "bpec",
+  "version": "${version}",
+  "name": "BpAndEc",
+  "description": "Adds /bp (backpack) and /ec (ender chest) commands. No item required.",
+  "authors": [],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.example.bpec.BpEcMod"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.14.0",
+    "fabric-api": "*",
+    "minecraft": ">=1.21.1"
+  }
+}

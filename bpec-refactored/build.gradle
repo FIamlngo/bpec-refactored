@@ -1,0 +1,40 @@
+plugins {
+    id 'fabric-loom' version '1.7.4'
+}
+
+version = '1.0.0'
+group = 'com.example.bpec'
+
+base {
+    archivesName = "BpAndEc v.${version} [Fabric 1.21.11]"
+}
+
+repositories {}
+
+dependencies {
+    minecraft "com.mojang:minecraft:1.21.1"
+    mappings "net.fabricmc:yarn:1.21.1+build.3:v2"
+    modImplementation "net.fabricmc:fabric-loader:0.16.0"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:0.102.0+1.21.1"
+}
+
+processResources {
+    inputs.property "version", project.version
+    filteringCharset "UTF-8"
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 21
+}
+
+// Disable sources jar — not needed for distribution
+tasks.sourcesJar.enabled = false
+tasks.remapSourcesJar.enabled = false
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
