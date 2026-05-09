@@ -20,8 +20,8 @@ import java.util.UUID;
 public class BackpackManager {
 
     private static final Map<UUID, SimpleInventory> inventories = new HashMap<>();
-    // Path resolved at join time while the server is healthy
     private static final Map<UUID, Path> savePaths = new HashMap<>();
+    private static final Map<UUID, RegistryWrapper.WrapperLookup> registryCache = new HashMap<>();
     private static final String DATA_FOLDER = "bpec_data";
 
     public static SimpleInventory getBackpack(ServerPlayerEntity player) {
@@ -29,31 +29,34 @@ public class BackpackManager {
     }
 
     public static void onPlayerJoin(ServerPlayerEntity player) {
-        // Resolve and cache the save path NOW while server is fully running
         Path path = resolvePath(player);
         savePaths.put(player.getUuid(), path);
+        registryCache.put(player.getUuid(), player.getRegistryManager()); // cache here
 
         SimpleInventory inv = new SimpleInventory(54);
         loadFromDisk(player.getUuid(), player.getRegistryManager(), inv);
         inventories.put(player.getUuid(), inv);
-        BpEcMod.LOGGER.info("[BPEC] Joined: {} | path: {} | items: {}", player.getName().getString(), path, countItems(inv));
+        BpEcMod.LOGGER.info("[BPEC] Joined: {} | items: {}", player.getName().getString(), countItems(inv));
     }
 
     public static void onPlayerLeave(ServerPlayerEntity player) {
         SimpleInventory inv = inventories.get(player.getUuid());
-        if (inv != null) {
+        RegistryWrapper.WrapperLookup registries = registryCache.get(player.getUuid());
+        if (inv != null && registries != null) {
             BpEcMod.LOGGER.info("[BPEC] Leaving: {} | items: {}", player.getName().getString(), countItems(inv));
-            saveToDisk(player.getUuid(), player.getRegistryManager(), inv);
+            saveToDisk(player.getUuid(), registries, inv);
             inventories.remove(player.getUuid());
             savePaths.remove(player.getUuid());
+            registryCache.remove(player.getUuid());
         }
     }
 
     public static void savePlayer(ServerPlayerEntity player) {
         SimpleInventory inv = inventories.get(player.getUuid());
-        if (inv != null) {
+        RegistryWrapper.WrapperLookup registries = registryCache.get(player.getUuid());
+        if (inv != null && registries != null) {
             BpEcMod.LOGGER.info("[BPEC] Periodic save: {} | items: {}", player.getName().getString(), countItems(inv));
-            saveToDisk(player.getUuid(), player.getRegistryManager(), inv);
+            saveToDisk(player.getUuid(), registries, inv);
         }
     }
 
