@@ -62,6 +62,13 @@ public class BackpackManager {
         }
     }
 
+    public static void savePlayer(ServerPlayerEntity player) {
+    SimpleInventory inv = inventories.get(player.getUuid());
+    if (inv != null) {
+        saveToDisk(player, inv);
+    }
+}
+
     // -------------------------------------------------------------------------
     // Disk I/O
     // -------------------------------------------------------------------------
