@@ -9,13 +9,6 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 
-/**
- * /ec — opens the player's ender chest inventory directly.
- *
- * Uses the real ender chest inventory so changes are reflected in actual
- * ender chests placed in the world (and vice versa).
- * No ender chest block required. Works anywhere.
- */
 public class EcCommand {
 
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
@@ -33,7 +26,7 @@ public class EcCommand {
                 GenericContainerScreenHandler.createGeneric9x3(
                     syncId,
                     playerInventory,
-                    player.getEnderChestInventory()   // real ender chest — syncs with blocks
+                    player.getEnderChestInventory()
                 ),
             Text.literal("Ender Chest")
         ));

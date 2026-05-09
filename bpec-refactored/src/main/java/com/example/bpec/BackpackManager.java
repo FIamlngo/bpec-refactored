@@ -33,13 +33,14 @@ public class BackpackManager {
     }
 
     private static NbtCompound serialize(SimpleInventory inv, ServerPlayerEntity player) {
+        var ops = player.getRegistryManager().getOps(net.minecraft.nbt.NbtOps.INSTANCE);
         NbtList list = new NbtList();
         for (int slot = 0; slot < inv.size(); slot++) {
             ItemStack stack = inv.getStack(slot);
             if (!stack.isEmpty()) {
                 NbtCompound entry = new NbtCompound();
                 entry.putInt("Slot", slot);
-                entry.put("Item", stack.encode(player.getRegistryManager()));
+                ItemStack.CODEC.encodeStart(ops, stack).ifSuccess(nbt -> entry.put("Item", nbt));
                 list.add(entry);
             }
         }
@@ -50,12 +51,13 @@ public class BackpackManager {
 
     private static void deserialize(NbtCompound tag, SimpleInventory inv, ServerPlayerEntity player) {
         if (!(tag.get("Items") instanceof NbtList list)) return;
+        var ops = player.getRegistryManager().getOps(net.minecraft.nbt.NbtOps.INSTANCE);
         for (int i = 0; i < list.size(); i++) {
             NbtCompound entry = list.getCompound(i);
             int slot = entry.getInt("Slot");
             if (slot >= 0 && slot < inv.size()) {
-                Optional<ItemStack> stack = ItemStack.fromNbt(player.getRegistryManager(), entry.getCompound("Item"));
-                inv.setStack(slot, stack.orElse(ItemStack.EMPTY));
+                ItemStack.CODEC.parse(ops, entry.get("Item"))
+                    .ifSuccess(stack -> inv.setStack(slot, stack));
             }
         }
     }
