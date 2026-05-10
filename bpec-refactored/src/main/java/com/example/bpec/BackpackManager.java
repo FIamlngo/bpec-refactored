@@ -53,8 +53,9 @@ public class BackpackManager {
         if (!(tag.get("Items") instanceof NbtList list)) return;
         var ops = player.getRegistryManager().getOps(net.minecraft.nbt.NbtOps.INSTANCE);
         for (int i = 0; i < list.size(); i++) {
-            NbtCompound entry = list.getCompound(i);
-            int slot = entry.getInt("Slot");
+            NbtCompound entry = list.getCompound(i).orElse(null);
+            if (entry == null) continue;
+            int slot = entry.getInt("Slot").orElse(-1);
             if (slot >= 0 && slot < inv.size()) {
                 ItemStack.CODEC.parse(ops, entry.get("Item"))
                     .ifSuccess(stack -> inv.setStack(slot, stack));
