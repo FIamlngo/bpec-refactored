@@ -1,0 +1,14 @@
+{
+  "projectPath": ":",
+  "classpaths": {
+    "test": [
+      "/workspaces/bpec-refactored/bpec-refactored/build/classes/java/test",
+      "/workspaces/bpec-refactored/bpec-refactored/build/resources/test"
+    ],
+    "main": [
+      "/workspaces/bpec-refactored/bpec-refactored/build/classes/java/main",
+      "/workspaces/bpec-refactored/bpec-refactored/build/resources/main",
+      "/workspaces/bpec-refactored/bpec-refactored/build/devlibs/BpAndEc v.1.0.0 [Fabric 1.21.11]-1.0.0-dev.jar"
+    ]
+  }
+}
