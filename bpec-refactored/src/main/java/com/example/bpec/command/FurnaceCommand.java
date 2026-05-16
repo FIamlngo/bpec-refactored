@@ -104,6 +104,22 @@ public class FurnaceCommand {
                     tryInstantSmelt();
                     return moved;
                 }
+
+                @Override
+                public void onClosed(net.minecraft.entity.player.PlayerEntity pe) {
+                    // Return all three furnace slots (input, fuel, output) to the player
+                    // BEFORE calling super. With a detached SimpleInventory, super would
+                    // call dropInventory at world pos (0,0,0) — clearing first ensures it
+                    // finds empty slots and does nothing harmful.
+                    for (int i = 0; i < 3; i++) {
+                        ItemStack stack = furnaceInv.getStack(i);
+                        if (!stack.isEmpty()) {
+                            pe.getInventory().offerOrDrop(stack);
+                            furnaceInv.setStack(i, ItemStack.EMPTY);
+                        }
+                    }
+                    super.onClosed(pe);
+                }
             },
             Text.literal("Furnace")
         ));
