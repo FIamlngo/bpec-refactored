@@ -1,7 +1,11 @@
 .gradle/
-build/
-!build/libs/
-!build/libs/**
+build/classes/
+build/devlibs/
+build/generated/
+build/processIncludeJars/
+build/reports/
+build/resources/
+build/tmp/
 run/
 *.iml
 .idea/
