@@ -37,16 +37,24 @@ public class DupeCommand {
             return 0;
         }
 
-        // Give exactly <amount> extra copies of the held item.
-        for (int i = 0; i < amount; i++) {
-            ItemStack copy = held.copy();
+        // Give (count * amount) extra items, distributed into stacks respecting max stack size.
+        // e.g. holding 3x item, /dupe 2 → give 6 extra (total 9x); /dupe 3 → give 9 extra (total 12x).
+        int extraCount = held.getCount() * amount;
+        int maxStack = held.getMaxCount();
+        int given = 0;
+
+        while (given < extraCount) {
+            int batch = Math.min(maxStack, extraCount - given);
+            ItemStack copy = held.copyWithCount(batch);
             if (!player.getInventory().insertStack(copy)) {
                 player.dropItem(copy, false);
             }
+            given += batch;
         }
 
         final String name = held.getName().getString();
-        source.sendFeedback(() -> Text.literal("[Dupe] +" + amount + " " + name), false);
+        final int extra = extraCount;
+        source.sendFeedback(() -> Text.literal("[Dupe] +" + extra + " " + name), false);
         return 1;
     }
 }

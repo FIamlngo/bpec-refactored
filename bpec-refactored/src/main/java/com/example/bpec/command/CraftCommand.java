@@ -79,10 +79,11 @@ public class CraftCommand {
 
                     @Override
                     public void onClosed(PlayerEntity pe) {
-                        // Clear all slots BEFORE super so vanilla's dropInventory
-                        // (which targets world pos 0,0,0 with EMPTY context) finds nothing.
-                        // Slot 0 = result, slots 1-9 = 3x3 grid.
-                        for (int i = 0; i <= 9; i++) {
+                        // Clear grid slots (1-9) back to the player's inventory.
+                        // Slot 0 is only a recipe preview — it was never consumed,
+                        // so we clear it silently without giving it to the player.
+                        getSlot(0).setStackNoCallbacks(ItemStack.EMPTY);
+                        for (int i = 1; i <= 9; i++) {
                             ItemStack stack = getSlot(i).getStack();
                             if (!stack.isEmpty()) {
                                 pe.getInventory().offerOrDrop(stack);
