@@ -8,9 +8,7 @@ import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
-import net.minecraft.util.math.BlockPos;
 
 public class CraftCommand {
 
@@ -27,16 +25,14 @@ public class CraftCommand {
 
     private static int openCraftingTable(ServerCommandSource source) throws CommandSyntaxException {
         ServerPlayerEntity player = source.getPlayerOrThrow();
-        ServerWorld world = source.getWorld();
-        BlockPos pos = player.getBlockPos();
-
-        // Passing a real ScreenHandlerContext (world + pos) makes vanilla's onClosed()
-        // logic run correctly: grid items are returned to the player's inventory when
-        // the overlay is closed, and recipes resolve properly.
+        // ScreenHandlerContext.EMPTY bypasses the vanilla canUse() block check,
+        // which was closing the screen instantly (same root cause as the anvil fix).
+        // Items placed in the grid are still returned to inventory on close —
+        // that logic lives in onClosed(), not in the context check.
         player.openHandledScreen(new SimpleNamedScreenHandlerFactory(
             (syncId, playerInventory, p) ->
                 new CraftingScreenHandler(syncId, playerInventory,
-                    ScreenHandlerContext.create(world, pos)),
+                    ScreenHandlerContext.EMPTY),
             Text.literal("Crafting Table")
         ));
 
