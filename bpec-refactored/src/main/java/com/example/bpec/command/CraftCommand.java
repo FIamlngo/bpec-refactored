@@ -4,8 +4,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.inventory.CraftingInventory;
-import net.minecraft.inventory.CraftingResultInventory;
-import net.minecraft.inventory.SimpleInventory;
+import net.minecraft.inventory.Inventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.recipe.CraftingRecipe;
 import net.minecraft.recipe.RecipeEntry;
@@ -15,7 +14,6 @@ import net.minecraft.recipe.input.CraftingRecipeInput;
 import net.minecraft.screen.CraftingScreenHandler;
 import net.minecraft.screen.ScreenHandlerContext;
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
-import net.minecraft.screen.slot.SlotActionType;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -48,40 +46,50 @@ public class CraftCommand {
             (syncId, playerInventory, p) ->
                 new CraftingScreenHandler(syncId, playerInventory, ScreenHandlerContext.EMPTY) {
 
-                    /** Resolve whatever is in the 3x3 grid and put the result in slot 0 (output). */
-                    private void refreshResult(ServerPlayerEntity sp) {
-                        // The crafting grid is slots 1-9 in a 3x3 CraftingScreenHandler.
-                        // Build a CraftingInventory view from those slots.
-                        CraftingInventory grid = new CraftingInventory(this, 3, 3);
-                        for (int i = 0; i < 9; i++) {
-                            grid.setStack(i, this.slots.get(i + 1).getStack());
-                        }
+                    // onContentChanged fires server-side whenever any slot in the
+                    // handler's tracked inventories changes — including the 3x3 grid.
+                    // This is the correct hook point; updateResult is static in 1.21.x
+                    // and cannot be overridden.
+                    @Override
+                    public void onContentChanged(Inventory inventory) {
+                        super.onContentChanged(inventory);
 
-                        CraftingRecipeInput input = grid.createRecipeInput();
+                        // Only resolve recipes on the server
+                        if (!(player instanceof ServerPlayerEntity sp)) return;
+
+                        // Slot 0 is the result; slots 1-9 are the 3x3 grid.
+                        // We need a CraftingInventory to build the recipe input.
+                        // The handler exposes it via getSlot — cast the backing inv.
+                        Inventory gridInv = getSlot(1).inventory;
+                        if (!(gridInv instanceof CraftingInventory craftingInv)) return;
+
+                        CraftingRecipeInput input = craftingInv.createRecipeInput();
                         Optional<RecipeEntry<CraftingRecipe>> match =
                             matchGetter.getFirstMatch(input, world);
 
-                        ItemStack result = match.map(e ->
-                            e.value().craft(input, sp.getRegistryManager())
-                        ).orElse(ItemStack.EMPTY);
-
-                        // Slot 0 is the output slot.
-                        this.slots.get(0).setStack(result);
-                        this.sendContentUpdates();
+                        if (match.isPresent()) {
+                            ItemStack result = match.get().value()
+                                .craft(input, sp.getRegistryManager());
+                            getSlot(0).setStackNoCallbacks(result);
+                        } else {
+                            getSlot(0).setStackNoCallbacks(ItemStack.EMPTY);
+                        }
+                        sendContentUpdates();
                     }
 
                     @Override
-                    public void onSlotClick(int slotIndex, int button,
-                                            SlotActionType actionType, PlayerEntity pe) {
-                        super.onSlotClick(slotIndex, button, actionType, pe);
-                        if (pe instanceof ServerPlayerEntity sp) refreshResult(sp);
-                    }
-
-                    @Override
-                    public ItemStack quickMove(PlayerEntity pe, int index) {
-                        ItemStack moved = super.quickMove(pe, index);
-                        if (pe instanceof ServerPlayerEntity sp) refreshResult(sp);
-                        return moved;
+                    public void onClosed(PlayerEntity pe) {
+                        // Clear all slots BEFORE super so vanilla's dropInventory
+                        // (which targets world pos 0,0,0 with EMPTY context) finds nothing.
+                        // Slot 0 = result, slots 1-9 = 3x3 grid.
+                        for (int i = 0; i <= 9; i++) {
+                            ItemStack stack = getSlot(i).getStack();
+                            if (!stack.isEmpty()) {
+                                pe.getInventory().offerOrDrop(stack);
+                                getSlot(i).setStackNoCallbacks(ItemStack.EMPTY);
+                            }
+                        }
+                        super.onClosed(pe);
                     }
                 },
             Text.literal("Crafting Table")
